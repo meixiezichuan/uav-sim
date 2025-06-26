@@ -1,3 +1,5 @@
+from time import sleep
+
 import simpy
 from utils import config
 from simulator.simulator import Simulator
@@ -18,6 +20,9 @@ if __name__ == "__main__":
     channel_states = {i: simpy.Resource(env, capacity=1) for i in range(config.NUMBER_OF_DRONES)}
     sim = Simulator(seed=2024, env=env, channel_states=channel_states, n_drones=config.NUMBER_OF_DRONES)
 
-    env.run(until=config.SIM_TIME)
+    env.run(until=config.SIM_TIME + 5*1e6)
+    sleep(30)
     sim.show_performance()
+
+
 

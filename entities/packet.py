@@ -60,6 +60,9 @@ class Packet:
     def get_current_ttl(self):
         return self.__ttl
 
+    def set_ttl(self, ttl):
+        self.__ttl = ttl
+
 
 class DataPacket(Packet):
     """

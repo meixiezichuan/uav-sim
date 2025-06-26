@@ -143,5 +143,6 @@ def maximum_communication_range():
     path_loss_db = transmit_power_db - noise_power_db - snr_threshold_db
 
     max_comm_range = (c * (10 ** (path_loss_db / (alpha * 10)))) / (4 * math.pi * fc)
+    print('max_comm_range: \n', max_comm_range)
 
     return max_comm_range

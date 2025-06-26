@@ -40,6 +40,7 @@ class Metrics:
         self.datapacket_arrived = set()  # all data packets that arrives the destination
         self.datapacket_generated_num = 0
 
+
         self.delivery_time = []
         self.deliver_time_dict = defaultdict()
 
@@ -52,6 +53,14 @@ class Metrics:
         self.mac_delay = []
 
         self.collision_num = 0
+
+        # metricc for broadcast
+        self.b_datapacket_generated = defaultdict(set)  # all data packets generated
+        self.b_datapacket_arrived = defaultdict(set)
+        self.b_datapacket_sent = 0
+
+        self.drone_num = 0
+        self.sum_arrived = 0
 
     def print_metrics(self):
         # calculate the average end-to-end delay
@@ -66,7 +75,14 @@ class Metrics:
 
         e2e_delay = np.mean(self.delivery_time) / 1e3  # unit: ms
 
-        pdr = len(self.datapacket_arrived) / self.datapacket_generated_num * 100  # in %
+        #pdr = len(self.datapacket_arrived) / self.datapacket_generated_num * 100  # in %
+        for k, v in self.b_datapacket_arrived.items():
+            self.sum_arrived += len(v)
+
+        num_drones = len(self.b_datapacket_arrived.items())
+        self.drone_num = num_drones
+
+        pdr = self.sum_arrived / self.datapacket_generated_num / num_drones * 100  # in %
 
         #rl = self.control_packet_num / len(self.datapacket_arrived)
 
@@ -74,24 +90,31 @@ class Metrics:
 
         hop_cnt = np.mean(self.hop_cnt)
 
-        average_mac_delay = np.mean(self.mac_delay)
+        #average_mac_delay = np.mean(self.mac_delay)
 
-        print('Totally send: ', self.datapacket_generated_num, ' data packets')
+        print("Len of hop_cnt: ", len(self.hop_cnt))
+
+        print('Totally generated: ', self.datapacket_generated_num, ' data packets')
+        print('Totally sent: ', self.b_datapacket_sent, ' data packets')
+        print('Totally receive: ', self.sum_arrived, ' data packets')
         print('Packet delivery ratio is: ', pdr, '%')
         print('Average end-to-end delay is: ', e2e_delay, 'ms')
         #print('Routing load is: ', rl)
         print('Average throughput is: ', throughput, 'Kbps')
         print('Average hop count is: ', hop_cnt)
         print('Collision num is: ', self.collision_num)
-        print('Average mac delay is: ', average_mac_delay, 'ms')
+        #print('Average mac delay is: ', average_mac_delay, 'ms')
 
         with open("simulation_result.txt", "w") as f:
-            f.write(f"Totally send: {self.datapacket_generated_num} data packets\n")
+            f.write(f"Totally generated: {self.datapacket_generated_num} data packets\n")
+            f.write(f"Totally sent: {self.b_datapacket_sent} data packets\n")
+            f.write(f"Totally receive: {self.sum_arrived} data packets\n")
+            f.write(f"Totally drone num: {self.drone_num}\n")
             f.write(f"Packet delivery ratio is: {pdr} %\n")
             f.write(f"Average end-to-end delay is: {e2e_delay} ms\n")
             #f.write(f"Routing load is: {rl}\n")
             f.write(f"Average throughput is: {throughput} Kbps\n")
             f.write(f"Average hop count is: {hop_cnt}\n")
             f.write(f"Collision num is: {self.collision_num}\n")
-            f.write(f"Average mac delay is: {average_mac_delay} ms\n")
+            #f.write(f"Average mac delay is: {average_mac_delay} ms\n")
 

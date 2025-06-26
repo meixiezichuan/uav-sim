@@ -344,9 +344,10 @@ class Drone:
                 self.update_inbox()
 
                 flag, all_drones_send_to_me, time_span, potential_packet = self.trigger()
-
-                for p in potential_packet:
-                    self.routing_protocol.packet_reception(p)
+                if flag:
+                    for p in potential_packet:
+                        if p.get_current_ttl() < config.MAX_TTL:
+                            self.routing_protocol.packet_reception(p)
                 yield self.env.timeout(5)
 
     def receive(self):
@@ -403,7 +404,6 @@ class Drone:
                                          pkd.packet_id, sender, self.identifier, self.simulator.env.now, max_sinr)
 
                             yield self.env.process(self.routing_protocol.packet_reception(pkd, sender))
-                            self.routing_protocol.packet_reception(pkd, sender)
                         else:
                             logging.info('Packet %s is dropped due to exceeding max TTL', pkd.packet_id)
                     else:  # sinr is lower than threshold
@@ -455,7 +455,7 @@ class Drone:
             transmitter = item[2]
             processed = item[3]  # indicate if this packet has been processed
             transmitting_time = packet.packet_length / config.BIT_RATE * 1e6  # expected transmission time
-
+           # print("transmitting_time :", transmitting_time)
             if not processed:  # this packet has not been processed yet
                 if self.env.now >= insertion_time + transmitting_time:  # it has been transmitted completely
                     flag = 1
@@ -463,8 +463,6 @@ class Drone:
                     time_span.append([insertion_time, insertion_time + transmitting_time])
                     potential_packet.append(packet)
                     item[3] = 1
-                else:
-                    pass
             else:
                 pass
 

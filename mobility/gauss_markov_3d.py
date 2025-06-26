@@ -5,6 +5,7 @@ from utils import config
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
+draw_drone =  config.NUMBER_OF_DRONES - 1
 
 class GaussMarkov3D:
     """
@@ -50,14 +51,23 @@ class GaussMarkov3D:
         self.b2 = 1
         self.b3 = 1
 
-        self.min_x = 0
-        self.max_x = config.MAP_LENGTH
+        range = drone.simulator.drone_range
 
-        self.min_y = 0
-        self.max_y = config.MAP_WIDTH
+        self.min_x = range[0][0]
+        self.max_x = range[0][1]
+        self.min_y = range[1][0]
+        self.max_y = range[1][1]
+        self.min_z = range[2][0]
+        self.max_z = range[2][1]
 
-        self.min_z = 0
-        self.max_z = config.MAP_HEIGHT
+        # self.min_x = 0
+        # self.max_x = config.MAP_LENGTH
+
+        #self.min_y = 0
+        #self.max_y = config.MAP_WIDTH
+
+        #self.min_z = 0
+        #self.max_z = config.MAP_HEIGHT
 
         self.my_drone.simulator.env.process(self.mobility_update(self.my_drone))
         self.trajectory = []
@@ -91,8 +101,10 @@ class GaussMarkov3D:
                 self.move_counter += 1
                 alpha2 = 1.0 - self.alpha
                 alpha3 = math.sqrt(1.0 - self.alpha * self.alpha)
-
-                next_speed = (self.alpha * cur_speed + alpha2 * velocity_mean +
+                if cur_speed == 0:
+                    next_speed = 0
+                else:
+                    next_speed = (self.alpha * cur_speed + alpha2 * velocity_mean +
                               alpha3 * self.rng_mobility.normalvariate(0, 1))
 
                 next_direction = (self.alpha * cur_direction + alpha2 * direction_mean +
@@ -107,7 +119,7 @@ class GaussMarkov3D:
 
                 next_position = [next_position_x, next_position_y, next_position_z]
 
-                if drone_id == 1:
+                if drone_id == draw_drone:
                     self.trajectory.append(next_position)
 
                 next_velocity = [next_velocity_x, next_velocity_y, next_velocity_z]
@@ -141,7 +153,7 @@ class GaussMarkov3D:
         y = []
         z = []
         yield self.my_drone.simulator.env.timeout(config.SIM_TIME-1)
-        if self.my_drone.identifier == 1:  # you can choose which drone's trajectory you want to check
+        if self.my_drone.identifier == draw_drone:  # you can choose which drone's trajectory you want to check
             for i in range(len(self.trajectory)):
                 x.append(self.trajectory[i][0])
                 y.append(self.trajectory[i][1])

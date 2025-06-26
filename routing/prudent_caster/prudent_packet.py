@@ -23,8 +23,9 @@ class PrudentDronePacket(Packet):
                  simulator):
         super().__init__(data_packet_id, data_packet_length, creation_time, simulator)
 
-        self.drone_id = drone_id
         self.prev_drone = prev_drone
+        self.drone_id = drone_id
+
 class PrudentDataPacket(Packet):
     def __init__(self,
                  src_drone,

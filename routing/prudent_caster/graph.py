@@ -1,16 +1,12 @@
-import time
-import threading
-import json
-from collections import defaultdict, deque
-from queue import PriorityQueue
-import socket
 
+import threading
+from collections import defaultdict, deque
 
 class Graph:
     def __init__(self, env):
         self.env = env
         self.adjList = defaultdict(list)
-        self.entry_life_time = 1 * 1e6  # unit: us (1s)
+        self.entry_life_time = 2 * 1e6  # unit: us (1s)
         self.root = None
         self.nodeTime = defaultdict()
         self.lock = threading.RLock()
@@ -35,24 +31,12 @@ class Graph:
             if v1 in self.adjList[v2]:
                 self.adjList[v2].remove(v1)
 
-    def remove_node(self, node):
-        with self.lock:
-            for neigh in self.adjList[node]:
-                self.remove_edge(neigh, node)
-
     def get_nodes(self):
          return self.adjList.keys()
+
     def find_neighbor(self, node):
         """返回节点的所有邻居"""
         return self.adjList.get(node, [])
-
-    def is_leaf(self, node):
-        """检查节点是否是叶子节点（非根节点且只有一个邻居）"""
-        # 根节点不可能是叶子节点
-        if self.root == node:
-            return False
-        neighbors = self.find_neighbor(node)
-        return len(neighbors) == 1
 
     def path_exists_in_tree(self, current_node, path):
         """在树结构中递归检查路径是否存在"""
@@ -91,14 +75,26 @@ class Graph:
         """获取所有叶子节点"""
         leaves = []
         for node, neighbors in self.adjList.items():
+            # 根节点不可能是叶子节点
             if self.is_leaf(node):
                 leaves.append(node)
         return leaves
 
-    def sort_adjacency_list(self):
-        """对邻接表进行排序（按节点名称）"""
+    def is_leaf(self, node):
+        # 根节点不可能是叶子节点
+        if node == self.root:
+            return False
+        # 非根节点且只有一个邻居的是叶子节点
+        neighbors = self.adjList[node]
+        if len(neighbors) <= 1:
+            return True
+        return False
+
+    def sort(self):
         for node in self.adjList:
-            self.adjList[node] = sorted(self.adjList[node])
+            neighbors = self.adjList[node]
+            neighbors_sorted = self.get_sorted_nodes(neighbors)
+            self.adjList[node] = neighbors_sorted
 
     def get_sorted_nodes(self, nodes):
         """
@@ -114,14 +110,14 @@ class Graph:
         node_degrees = {}
 
         # 计算每个节点的度数
-        with self.lock:
-            for node in nodes:
-                # 如果节点在邻接表中，度数为邻居数量；否则度数为0
-                neighbors = self.adjList.get(node)
-                if neighbors is not None:
-                    node_degrees[node] = len(neighbors)
-                else:
-                    node_degrees[node] = 0
+
+        for node in nodes:
+            # 如果节点在邻接表中，度数为邻居数量；否则度数为0
+            neighbors = self.adjList.get(node)
+            if neighbors is not None:
+                node_degrees[node] = len(neighbors)
+            else:
+                node_degrees[node] = 0
 
         # 排序：先按度数降序，再按节点名称升序
         sorted_nodes = sorted(
@@ -138,6 +134,7 @@ class Graph:
         #     print(f"Node: {node}, Degree: {node_degrees[node]}")
 
         return sorted_nodes
+
     def find_child_unconnected(self, node, connected):
         """查找节点的未连接子节点"""
         unconnected = 0
@@ -172,24 +169,6 @@ class Graph:
 
         return max_connected, max_neighbor
 
-    def get_leaves(self):
-        """获取所有叶子节点"""
-        leaves = []
-        with self.lock:
-            for node, neighbors in self.adjList.items():
-                # 根节点不可能是叶子节点
-                if node == self.root:
-                    continue
-                # 非根节点且只有一个邻居的是叶子节点
-                if len(neighbors) == 1:
-                    leaves.append(node)
-        return leaves
-
-    def find_neighbor(self, node):
-        """返回节点的所有邻居"""
-        with self.lock:
-            return self.adjList.get(node, [])
-
     def get_subgraph_within_hops(self, start_node, max_hops):
         """
         获取从起始节点在指定跳数范围内的子图
@@ -204,9 +183,6 @@ class Graph:
         queue = deque()
         queue.append((start_node, 0))  # (当前节点, 当前跳数)
 
-        # 记录已访问的节点及其跳数
-        visited = {start_node: 0}
-
         while queue:
             current_node, hops = queue.popleft()
 
@@ -218,23 +194,17 @@ class Graph:
             neighbors = self.find_neighbor(current_node)
 
             for neighbor in neighbors:
-                # 如果邻居节点尚未访问或找到更短的路径
-                if neighbor not in visited or visited[neighbor] > hops + 1:
-                    # 添加边到子图（如果边不存在）
-                    if not subgraph.path_exists([current_node, neighbor]):
-                        subgraph.add_edge(current_node, neighbor)
-
+                if not subgraph.path_exists([current_node, neighbor]):
+                    subgraph.add_edge(current_node, neighbor)
                     # 更新访问状态并加入队列
-                    visited[neighbor] = hops + 1
                     queue.append((neighbor, hops + 1))
 
         return subgraph
 
-    def MLST(self, root):
+    def get_mlst(self, root):
         """构建最大叶子生成树（MLST）算法 - 线程安全版"""
         # 对邻接表进行排序以确保确定性
-        self.sort_adjacency_list()
-
+        self.sort()
         # 创建新的生成树
         mlstree = Graph(self.env)
         mlstree.root = root
@@ -263,7 +233,6 @@ class Graph:
             if root in self.adjList:
                 for node in self.adjList[root]:
                     # 遍历每个邻居的邻居
-                    if node in self.adjList:
                         for nn in self.adjList[node]:
                             if nn not in connected:
                                 unconnected, unconnected_list = self.find_child_unconnected(nn, connected)
@@ -299,11 +268,6 @@ class Graph:
         # 获取叶子节点
         leaves = mlstree.get_leaves()
         return mlstree, leaves
-
-    def update(self):
-        for node, time in self.nodeTime.items():
-            if time + self.entry_life_time < self.env.now:
-                self.remove_node(node)
 
     def display(self):
         """显示图结构"""

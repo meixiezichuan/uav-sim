@@ -18,8 +18,16 @@ def get_random_start_point_3d(sim_seed):
 
     return start_position
 
+def get_random_start_point_3d_for_normal(sim_seed, range):
+    random.seed(sim_seed)
+    position_x = random.uniform(range[0][0], range[0][1])
+    position_y = random.uniform(range[1][0], range[1][1])
+    position_z = random.uniform(range[2][0], range[2][1])
 
-def generate_connected_drones(min_distance=10):
+    pos = (position_x, position_y, position_z)
+    return pos
+
+def generate_connected_drones(min_distance=config.BROADCAST_RANGE/2):
     """
     在立方体内生成全连通无人机位置
 

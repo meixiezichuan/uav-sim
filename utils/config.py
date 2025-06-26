@@ -8,14 +8,15 @@ LOG_PATH = ROOT / "logs"
 IEEE_802_11 = IeeeStandard().b_802_11
 
 # --------------------- simulation parameters --------------------- #
-MAP_LENGTH = 600  # m, length of the map
-MAP_WIDTH = 600  # m, width of the map
-MAP_HEIGHT = 600  # m, height of the map
-SIM_TIME = 5 * 1e6  # us, total simulation time
-NUMBER_OF_DRONES = 10  # number of drones in the network
+MAP_LENGTH = 1000  # m, length of the map
+MAP_WIDTH = 1000  # m, width of the map
+MAP_HEIGHT = 1000  # m, height of the map
+SIM_TIME = 100 * 1e6  # us, total simulation time
+NUMBER_OF_DRONES = 20  # number of drones in the network
+MAX_HOP = 5  # max hop of the network
 STATIC_CASE = 0  # whether to simulate a static network
 HETEROGENEOUS = 0  # heterogeneous network support (in terms of speed)
-LOGGING_LEVEL = logging.DEBUG # whether to print the detail information during simulation
+LOGGING_LEVEL = logging.INFO # whether to print the detail information during simulation
 
 # ---------- hardware parameters of drone (rotary-wing) -----------#
 PROFILE_DRAG_COEFFICIENT = 0.012
@@ -32,7 +33,7 @@ FUSELAGE_DRAG_RATIO = 0.3
 INITIAL_ENERGY = 20 * 1e3  # in joule
 ENERGY_THRESHOLD = 2000  # in joule
 MAX_QUEUE_SIZE = 200  # maximum size of drone's queue
-BROADCAST_RANGE= 200 # in meter, drone's communication range
+BROADCAST_RANGE= 100 # in meter, drone's communication range
 
 # ----------------------- radio parameters ----------------------- #
 TRANSMITTING_POWER = 0.1  # in Watt
@@ -65,7 +66,9 @@ HELLO_PACKET_PAYLOAD_LENGTH = 256  # bit
 HELLO_PACKET_LENGTH = IP_HEADER_LENGTH + MAC_HEADER_LENGTH + PHY_HEADER_LENGTH + HELLO_PACKET_PAYLOAD_LENGTH
 
 # define the range of packet_id of different types of packets
-GL_ID_HELLO_PACKET = 10000
+
+GL_ID_HELLO_PACKET_START = 10000000
+GL_ID_HELLO_PACKET = GL_ID_HELLO_PACKET_START
 GL_ID_ACK_PACKET = 20000
 GL_ID_VF_PACKET = 30000
 GL_ID_GRAD_MESSAGE = 40000
