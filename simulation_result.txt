@@ -1,7 +1,0 @@
-Totally send: 50 data packets
-Packet delivery ratio is: 100.0 %
-Average end-to-end delay is: 805.7303 ms
-Average throughput is: 406.65205455534453 Kbps
-Average hop count is: 0.0
-Collision num is: 0
-Average mac delay is: nan ms

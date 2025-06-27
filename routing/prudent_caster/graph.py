@@ -62,8 +62,8 @@ class Graph:
         """检查路径是否存在（通用图结构）"""
         # 如果是树结构且有根节点
         #print("path_exists, path:", path)
-        if self.root is not None:
-            return self.path_exists_in_tree(self.root, path)
+        #if self.root is not None:
+        #    return self.path_exists_in_tree(self.root, path)
 
         # 通用图结构：检查路径中每对相邻节点是否相连
         for i in range(len(path) - 1):

@@ -11,6 +11,7 @@ from utils import config
 from utils.util_function import euclidean_distance_3d
 
 GLOBAL_PRUDENT_DATA_PACKET_ID = 0
+BROADCAST = True
 
 # config logging
 logging.basicConfig(filename='running_log.log',
@@ -143,34 +144,24 @@ class PrudentCaster:
 
         for key, paths in self.drone_path.items():
             print("packet_id: ", key, "paths: ", paths)
-            for path in paths:
-                src_drone = path[-1]
-                sub_graph = self.local_graph.get_subgraph_within_hops(src_drone, 2)
-                #print("--------sub_graph: \n")
-                #sub_graph.display()
-                #print("-------------------\n")
-                prev_drone = path[0]
-                mlst, _ = sub_graph.get_mlst(prev_drone)
-                new_path = path + [self.my_drone.identifier]
-                #print("--------mlst: \n")
-                #mlst.display()
-                #print("-------------------\n")
-                #print("new_path: ", new_path)
-                if not mlst.is_leaf(self.my_drone.identifier) and mlst.path_exists(new_path):
-                    #print("Path exists: ", new_path)
+            if BROADCAST:
+                packet = copy.copy(self.packets.get(key))
+                packet.increase_ttl()
+                data_packet.drone_packets.append(packet)
+            else:
+                add, prev = self.check_add_drone_packets(paths)
+                if add:
                     packet = copy.copy(self.packets.get(key))
-                    #print("add packet, key:", key, "packet_id: ", packet.packet_id)
-                    packet.prev_drone = src_drone
+                    packet.prev_drone = prev
                     packet.increase_ttl()
                     data_packet.drone_packets.append(packet)
-                    break
+
             self.drone_path.remove(key)
             self.packets.remove(key)
 
-
-        packet_ids = [data_packet.packet_id]
-        for p in data_packet.drone_packets:
-            packet_ids.append(p.packet_id)
+        #packet_ids = [data_packet.packet_id]
+        #for p in data_packet.drone_packets:
+        #    packet_ids.append(p.packet_id)
         #print("data_packet:", packet_ids)
         #print("--------end UAV", self.my_drone.identifier, "generate_broadcast_data_packet \n")
         return data_packet
@@ -185,6 +176,29 @@ class PrudentCaster:
         self.simulator.metrics.b_datapacket_sent += (len(data_packet.drone_packets) + 1)
         self.simulator.metrics.b_datapacket_arrived[self.my_drone.identifier].add(data_packet.packet_id)
         self.write_msg((data_packet.packet_id, data_packet.creation_time))
+
+    def check_add_drone_packets(self, paths):
+        for path in paths:
+            src_drone = path[-1]
+            sub_graph = self.local_graph.get_subgraph_within_hops(src_drone, 2)
+            # print("--------sub_graph: \n")
+            # sub_graph.display()
+            # print("-------------------\n")
+            prev_drone = path[0]
+
+            # 判断是否是环路
+            if prev_drone == self.my_drone.identifier:
+                continue
+
+            mlst, _ = sub_graph.get_mlst(prev_drone)
+            new_path = path + [self.my_drone.identifier]
+            # print("--------mlst: \n")
+            # mlst.display()
+            # print("-------------------\n")
+            # print("new_path: ", new_path)
+            if not mlst.is_leaf(self.my_drone.identifier) and mlst.path_exists(new_path):
+                return True, src_drone
+        return False, None
 
     def packet_reception(self, packet):
         """
@@ -217,8 +231,6 @@ class PrudentCaster:
                 neighbor = packet_copy.src_drone
                 self.local_graph.add_edge(self.my_drone.identifier, neighbor)  # update local_graph
                 self.local_graph.add_node(neighbor, current_time)
-                key = packet_copy.packet_id
-
                 new_drone_packet = PrudentDronePacket(drone_id=neighbor,
                                             prev_drone=neighbor,
                                             creation_time=packet_copy.creation_time,
@@ -232,8 +244,7 @@ class PrudentCaster:
                 drone_packets = packet_copy.drone_packets
                 for p in drone_packets:
                     self.calc_metrics(p)
-                    key = p.packet_id
-                    if p.packet_id != self.my_drone.identifier:
+                    if p.drone_id != self.my_drone.identifier:
                         logging.info('~~~Packet: UAV %s received %s ',
                                      self.my_drone.identifier, p.packet_id)
                         new_packet = copy.copy(p)
