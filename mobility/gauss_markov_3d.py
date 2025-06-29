@@ -5,7 +5,7 @@ from utils import config
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
-draw_drone =  config.NUMBER_OF_DRONES - 1
+draw_drone =  config.MAX_HOP + 1
 
 class GaussMarkov3D:
     """

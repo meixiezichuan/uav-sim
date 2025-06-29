@@ -3,7 +3,7 @@ import threading
 from collections import defaultdict, deque
 
 class Graph:
-    def __init__(self, env):
+    def __init__(self, env=None):
         self.env = env
         self.adjList = defaultdict(list)
         self.entry_life_time = 2 * 1e6  # unit: us (1s)
@@ -40,8 +40,7 @@ class Graph:
 
     def path_exists_in_tree(self, current_node, path):
         """在树结构中递归检查路径是否存在"""
-        if path is None:
-            return False
+
         # 路径的第一个节点必须与当前节点匹配
         if path[0] != current_node:
             return False
@@ -60,11 +59,6 @@ class Graph:
 
     def path_exists(self, path):
         """检查路径是否存在（通用图结构）"""
-        # 如果是树结构且有根节点
-        #print("path_exists, path:", path)
-        #if self.root is not None:
-        #    return self.path_exists_in_tree(self.root, path)
-
         # 通用图结构：检查路径中每对相邻节点是否相连
         for i in range(len(path) - 1):
             if path[i + 1] not in self.find_neighbor(path[i]):

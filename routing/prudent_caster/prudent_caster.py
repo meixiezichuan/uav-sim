@@ -11,7 +11,6 @@ from utils import config
 from utils.util_function import euclidean_distance_3d
 
 GLOBAL_PRUDENT_DATA_PACKET_ID = 0
-BROADCAST = True
 
 # config logging
 logging.basicConfig(filename='running_log.log',
@@ -48,8 +47,8 @@ class PrudentCaster:
         self.local_graph = Graph(self.simulator.env)
         self.drone_path = SafeDict()
         self.packets = SafeDict()
-        self.simulator.env.process(self.broadcast_hello_packet_periodically())
-        self.simulator.env.process(self.broadcast_data_packet_periodically())
+        self.simulator.env.process(self.broadcast_packet_periodically())
+        #self.simulator.env.process(self.broadcast_data_packet_periodically())
         self.hello_count = 0
 
     def broadcast_hello_packet(self):
@@ -75,22 +74,59 @@ class PrudentCaster:
         #self.my_drone.transmitting_queue.put(hello_pkd)
         self.send_hello_broadcast(hello_pkd)
 
-    def broadcast_hello_packet_periodically(self):
-        yield self.simulator.env.timeout(self.my_drone.identifier*10)
+    def broadcast_packet_periodically(self):
+        slot = config.BROADCAST_SLOT
+        num_nodes = config.NUMBER_OF_DRONES
+        frame_size = slot * num_nodes
+
+        # 计算最大允许的广播延迟（时隙前半段）
+        max_delay = slot * 0.5
+
+        # 1. 初始对齐到自己的时隙
+        now = self.simulator.env.now
+        frame_start = (now // frame_size) * frame_size
+        my_slot_start = frame_start + self.my_drone.identifier * slot
+
+        # 如果已经过了当前时隙前半段，等待下一帧
+        if now > my_slot_start + max_delay:
+            my_slot_start += frame_size
+
+        # 在时隙前半段内随机选择广播时间
+        broadcast_time = my_slot_start + self.rng_routing.uniform(0, max_delay)
+        yield self.simulator.env.timeout(broadcast_time - now)
+        self.broadcast_packet()
+
+        # 2. 周期性广播（保持TDMA对齐）
         while True:
-            self.broadcast_hello_packet()
-            #jitter = self.rng_routing.randint(1000, 2000)  # delay jitter
-            yield self.simulator.env.timeout(self.hello_interval)
+            # 计算下一帧的广播时间（保持相同时间偏移）
+            next_broadcast = broadcast_time + frame_size
+            current_time = self.simulator.env.now
+
+            # 确保不会过早广播（如果仿真时间提前）
+            if current_time < next_broadcast:
+                yield self.simulator.env.timeout(next_broadcast - current_time)
+
+            self.broadcast_packet()
+            broadcast_time = next_broadcast  # 更新为当前广播时间
+
+    def broadcast_packet(self):
+        self.broadcast_hello_packet()
+        if config.GL_ID_HELLO_PACKET - config.GL_ID_HELLO_PACKET_START > config.NUMBER_OF_DRONES + 1:
+            if self.hello_count % 10 == 0:
+                self.broadcast_data_packet()
+
 
     def send_hello_broadcast(self, packet):
         # TODO, 判断通信范围，进行广播
+        uavs = []
         for drone in self.simulator.drones:
             if drone.identifier != self.my_drone.identifier:
                 d = euclidean_distance_3d(self.my_drone.coords, drone.coords)
                 #print("Hello my pos: ", self.my_drone.coords, "other pos:", drone.coords, "d: ", d)
                 if d <= config.BROADCAST_RANGE:
                     self.my_drone.mac_protocol.phy.unicast(packet, drone.identifier)
-
+                    uavs.append(drone.identifier)
+        self.my_drone.mac_protocol.phy.multicast(packet, uavs)
 
     def send_data_broadcast(self, packet):
         # TODO, 判断通信范围，进行广播
@@ -99,27 +135,20 @@ class PrudentCaster:
         for drone in self.simulator.drones:
             if drone.identifier != self.my_drone.identifier :
                 d = euclidean_distance_3d(self.my_drone.coords, drone.coords)
-                print("Data my pos: ", self.my_drone.coords, "other pos:", drone.coords, "d: ", d)
-                logging.info('UAV %s, send to UAV %s, d: %d',
-                             self.my_drone.identifier, drone.identifier, d)
+                #print("Data my pos: ", self.my_drone.coords, "other pos:", drone.coords, "d: ", d)
                 if d <= config.BROADCAST_RANGE:
-                    self.my_drone.mac_protocol.phy.unicast(packet, drone.identifier)
-                    uavs.append(drone)
-
+                    uavs.append(drone.identifier)
+        self.my_drone.mac_protocol.phy.multicast(packet, uavs)
         packet_ids = [packet.packet_id]
         for p in packet.drone_packets:
             packet_ids.append(p.packet_id)
         logging.info('Broadcast Data, UAV %s, send to UAV %s, packets %s ',
-                     self.my_drone.identifier, drone.identifier, packet_ids)
-        print("--------send_data_broadcast UAV ", self.my_drone.identifier, "packet: ", packet_ids)
-        print("--------end send_data_broadcast UAV ", self.my_drone.identifier)
+                     self.my_drone.identifier, uavs, packet_ids)
 
     def broadcast_data_packet_periodically(self):
         while config.GL_ID_HELLO_PACKET - config.GL_ID_HELLO_PACKET_START < config.NUMBER_OF_DRONES + 1:
             yield self.simulator.env.timeout(self.hello_interval)  #
         while True:
-            if self.simulator.env.now >= config.SIM_TIME:
-                break
             self.broadcast_data_packet()
             #jitter = self.rng_routing.randint(1000, 2000)  # delay jitter
             yield self.simulator.env.timeout(self.data_interval)
@@ -129,11 +158,12 @@ class PrudentCaster:
         print("--------begin UAV", self.my_drone.identifier, "generate_broadcast_data_packet \n")
         global GLOBAL_PRUDENT_DATA_PACKET_ID
         self.update_local_graph()
-       # print("--------UAV", self.my_drone.identifier, "local_graph: \n")
-        #self.local_graph.display()
-       # print("-------------------\n")
+        print("--------UAV", self.my_drone.identifier, "local_graph: \n")
+        self.local_graph.display()
+        print("-------------------\n")
+        if self.simulator.env.now <= config.SIM_TIME:
+            GLOBAL_PRUDENT_DATA_PACKET_ID += 1
 
-        GLOBAL_PRUDENT_DATA_PACKET_ID += 1
         data_packet = PrudentDataPacket(src_drone=self.my_drone.identifier,
                                         drone_packets=[],
                                         creation_time=self.simulator.env.now,
@@ -144,13 +174,20 @@ class PrudentCaster:
 
         for key, paths in self.drone_path.items():
             print("packet_id: ", key, "paths: ", paths)
-            if BROADCAST:
+            if config.DATA_BROADCAST_TYPE == 0: # broadcast
                 packet = copy.copy(self.packets.get(key))
                 packet.increase_ttl()
                 data_packet.drone_packets.append(packet)
+            elif config.DATA_BROADCAST_TYPE == 1: # random gossip
+                add = self.check_random_send(paths)
+                if add:
+                    packet = copy.copy(self.packets.get(key))
+                    packet.increase_ttl()
+                    data_packet.drone_packets.append(packet)
             else:
                 add, prev = self.check_add_drone_packets(paths)
                 if add:
+                    print("path exists, prev: ", prev, "packet:", key[1])
                     packet = copy.copy(self.packets.get(key))
                     packet.prev_drone = prev
                     packet.increase_ttl()
@@ -181,9 +218,9 @@ class PrudentCaster:
         for path in paths:
             src_drone = path[-1]
             sub_graph = self.local_graph.get_subgraph_within_hops(src_drone, 2)
-            # print("--------sub_graph: \n")
-            # sub_graph.display()
-            # print("-------------------\n")
+            #print("--------sub_graph: \n")
+            #sub_graph.display()
+            #print("-------------------\n")
             prev_drone = path[0]
 
             # 判断是否是环路
@@ -192,13 +229,26 @@ class PrudentCaster:
 
             mlst, _ = sub_graph.get_mlst(prev_drone)
             new_path = path + [self.my_drone.identifier]
-            # print("--------mlst: \n")
-            # mlst.display()
-            # print("-------------------\n")
-            # print("new_path: ", new_path)
+            #print("--------mlst: \n")
+            #mlst.display()
+            #print("-------------------\n")
+            #print("new_path: ", new_path)
             if not mlst.is_leaf(self.my_drone.identifier) and mlst.path_exists(new_path):
                 return True, src_drone
         return False, None
+
+    def check_random_send(self, paths):
+        most_prob = 0
+        for path in paths:
+            src_drone = path[-1]
+            slibings = self.local_graph.find_neighbor(src_drone)
+            prob = 1 / len(slibings)
+            if prob > most_prob:
+                most_prob = prob
+        r = random.random()  # 在 [0.0, 1.0) 中随机
+        return r < most_prob
+
+
 
     def packet_reception(self, packet):
         """
@@ -226,8 +276,8 @@ class PrudentCaster:
             #print("-------packet_reception UAV ", self.my_drone.identifier)
             packet_copy = packet
             if packet_copy.src_drone != self.my_drone.identifier:
-                logging.info('~~~Packet: UAV %s received %s ',
-                             self.my_drone.identifier, packet_copy.packet_id)
+                #logging.info('~~~Packet: UAV %s received %s ',
+                #             self.my_drone.identifier, packet_copy.packet_id)
                 neighbor = packet_copy.src_drone
                 self.local_graph.add_edge(self.my_drone.identifier, neighbor)  # update local_graph
                 self.local_graph.add_node(neighbor, current_time)
@@ -245,8 +295,8 @@ class PrudentCaster:
                 for p in drone_packets:
                     self.calc_metrics(p)
                     if p.drone_id != self.my_drone.identifier:
-                        logging.info('~~~Packet: UAV %s received %s ',
-                                     self.my_drone.identifier, p.packet_id)
+                        #logging.info('~~~Packet: UAV %s received %s ',
+                        #             self.my_drone.identifier, p.packet_id)
                         new_packet = copy.copy(p)
                         path = [p.prev_drone, neighbor]
                         self.update_packets(new_packet, path)
@@ -277,6 +327,7 @@ class PrudentCaster:
         self.drone_path.add(key, queue)
         self.write_msg((packet.packet_id, packet.creation_time))
         self.packets.add(key, packet)
+        #print("----UAV ", self.my_drone.identifier, "received packet :", packet.packet_id)
 
     def calc_metrics(self, packet_copy):
             my = self.my_drone.identifier
@@ -290,7 +341,8 @@ class PrudentCaster:
 
     def update_local_graph(self):
             for node, time in self.local_graph.nodeTime.items():
-                if self.simulator.env.now - time > 5 * self.data_interval :
+                framesize = config.BROADCAST_SLOT * config.NUMBER_OF_DRONES
+                if self.simulator.env.now - time > 2 * framesize :
                     self.local_graph.remove_edge(self.my_drone.identifier, node)
 
     def write_msg(self, packet):

@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from collections import defaultdict
+from utils import config
 
 
 class Metrics:
@@ -103,9 +104,12 @@ class Metrics:
         print('Average throughput is: ', throughput, 'Kbps')
         print('Average hop count is: ', hop_cnt)
         print('Collision num is: ', self.collision_num)
-        #print('Average mac delay is: ', average_mac_delay, 'ms')
+       # print('Average mac delay is: ', average_mac_delay, 'ms')
 
-        with open("simulation_result.txt", "w") as f:
+
+        file_name = str(config.DATA_BROADCAST_TYPE) + str(self.drone_num) + "_" + str(config.MAX_HOP) + ".txt"
+
+        with open(file_name, "w") as f:
             f.write(f"Totally generated: {self.datapacket_generated_num} data packets\n")
             f.write(f"Totally sent: {self.b_datapacket_sent} data packets\n")
             f.write(f"Totally receive: {self.sum_arrived} data packets\n")

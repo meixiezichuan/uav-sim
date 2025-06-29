@@ -11,12 +11,16 @@ IEEE_802_11 = IeeeStandard().b_802_11
 MAP_LENGTH = 1000  # m, length of the map
 MAP_WIDTH = 1000  # m, width of the map
 MAP_HEIGHT = 1000  # m, height of the map
-SIM_TIME = 100 * 1e6  # us, total simulation time
+SIM_TIME = 50 * 1e6  # us, total simulation time
 NUMBER_OF_DRONES = 20  # number of drones in the network
-MAX_HOP = 5  # max hop of the network
+
 STATIC_CASE = 0  # whether to simulate a static network
 HETEROGENEOUS = 0  # heterogeneous network support (in terms of speed)
 LOGGING_LEVEL = logging.INFO # whether to print the detail information during simulation
+
+MAX_HOP = 5  # max hop of the network
+DATA_BROADCAST_TYPE = 1 # 0: broadcast gossip; 1: random gossip; 3: prudentcaster
+BROADCAST_SLOT = 5000
 
 # ---------- hardware parameters of drone (rotary-wing) -----------#
 PROFILE_DRAG_COEFFICIENT = 0.012
